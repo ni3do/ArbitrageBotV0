@@ -1,3 +1,4 @@
 app/secrets.py
 app/venv
 info.log
+__pycache__
