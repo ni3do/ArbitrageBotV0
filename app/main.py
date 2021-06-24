@@ -167,7 +167,10 @@ async def notifyOnOpportunity(pair, startAmount, out0, out1, version, channel):
         if out1 > startAmount:
             embed = Embed.crossDex(
                 pair['name'], startAmount, out0, out1, version)
-
+            #also log the info to file
+            logger.info("Found Opportunity with Version " + version + " on " + pair)
+            logger.info("Percentage Gain: " + (((out1 / startAmount) - 1.0) * 100))
+            
             embeds[pair['name']][version] = await channel.send(embed=embed)
     else:
         if out1 > startAmount:
