@@ -1,0 +1,6 @@
+version: "3.3"
+services: 
+    arbi0:
+        build: .
+        volumes:
+            - /home/pool1/crypto/bots/arbitrage/ArbitrageBotV0:/bot
