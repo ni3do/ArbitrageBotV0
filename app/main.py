@@ -1,7 +1,7 @@
 from secrets import infura_project_id, discord_bot_token
 
 import logging
-from tokens_bak import WBTC, WETH
+from tokens import WBTC, WETH
 
 import discord
 from discord.ext import commands, tasks
