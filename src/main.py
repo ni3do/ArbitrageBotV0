@@ -18,8 +18,12 @@ RPC_URL_INFURA = "https://mainnet.infura.io/v3/" + infura_project_id
 # channel-id to write messages to
 arbi_channel = 842344385928232971
 
+#create formats for logging
+date_strftime_format = "%d-%b-%y %H:%M:%S"
+message_format = "%(asctime)s - %(levelname)s - %(message)s"
+
 # setup the logger
-logging.basicConfig(filename="./info.log", format='%(asctime)s %(message)s')
+logging.basicConfig(filename="./info.log", format=message_format, datefmt= date_strftime_format)
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 # initializing the discord client
