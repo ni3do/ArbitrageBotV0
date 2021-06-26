@@ -22,7 +22,6 @@ arbi_channel = 842344385928232971
 logging.basicConfig(filename="./info.log", format='%(asctime)s %(message)s')
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
-
 # initializing the discord client
 disc_bot = discord.Client()
 logger.info(f"Discord Client started")
