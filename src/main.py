@@ -1,4 +1,4 @@
-from secrets import infura_project_id, discord_bot_token
+from secrets import infura_project_id, discord_bot_token, arbi_channel
 
 import logging
 from tokens import WBTC, WETH
@@ -15,15 +15,14 @@ from contracts import sushiswap_router, uniswap_quoter, kyberNetworkProxy
 # infura node url
 RPC_URL_INFURA = "https://mainnet.infura.io/v3/" + infura_project_id
 
-# channel-id to write messages to
-arbi_channel = 842344385928232971
 
-#create formats for logging
+# create formats for logging
 date_strftime_format = "%d-%b-%y %H:%M:%S"
 message_format = "%(asctime)s - %(levelname)s - %(message)s"
 
 # setup the logger
-logging.basicConfig(filename="./info.log", format=message_format, datefmt= date_strftime_format)
+logging.basicConfig(filename="./info.log",
+                    format=message_format, datefmt=date_strftime_format)
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 # initializing the discord client
@@ -46,17 +45,17 @@ pairs = [[pairs.AAVE_WETH, 5],
          [pairs.COMP_WETH, 5],
          [pairs.DAI_WETH, 2000],
          [pairs.DAI_USDC, 1000],
-        #no liquidity on sushi
-        #[pairs.DAI_USDT, 1000],
+         # no liquidity on sushi
+         #[pairs.DAI_USDT, 1000],
          [pairs.LINK_WETH, 100],
-        #no liquidity on sushi
-        #[pairs.MATIC_USDC, 2000],
+         # no liquidity on sushi
+         #[pairs.MATIC_USDC, 2000],
          [pairs.MATIC_WETH, 2000],
          [pairs.OCC_USDC, 100],
          [pairs.MKR_WETH, 1],
          [pairs.UNI_WETH, 100],
-         [pairs.USDC_WETH,2000],
-        #pairs.WBTC_USDC,],
+         [pairs.USDC_WETH, 2000],
+         # pairs.WBTC_USDC,],
          [pairs.WBTC_WETH, 0.2],
          [pairs.WETH_USDT, 1]]
 # dict to track embed messages in the disc channel
@@ -68,7 +67,6 @@ for pair in pairs:
 @disc_bot.event
 async def on_ready():
     checkUniSushi.start()
-    #checkUniKyber.start()
     get_ETH_price.start()
 
 # checks opportunities for a cross exchange swap between Sushiswap and Uniswap
@@ -87,9 +85,11 @@ async def checkUniSushi():
         fee = pair[0]['fee']
         startAmount = pair[1]
 
-        # check how much tokens will be available after swap in Uni and Sushi pool
+        # check how many tokens will be available after swap in Uni and Sushi pool
         (uni_out, sushi_out) = swapUniSushi(token0, token1, fee, startAmount)
-
+        # check how many tokens will be available after swap in Uni and Kyber pool
+        logger.info("Watching on kyber")
+        (uni_out_1, kyber_out) = swapUniSushi(token0, token1, fee, startAmount)
         # convert to full tokens
         uni_out = uni_out * (10 ** -(token1['decimals']))
         sushi_out = sushi_out * (10 ** -(token0['decimals']))
@@ -106,16 +106,6 @@ async def checkUniSushi():
         await notifyOnOpportunity(pair[0], startAmount, sushi_out, uni_out, 1, channel)
         # increment counter
         i = i+1
-
-# checks for opportunities in the same dex
-
-
-@tasks.loop(seconds=2.0)
-async def checkUniKyber():
-    kyber_out = kyber_network_proxy.functions.getExpectedRate(tokens.WBTC['cksum_address'], tokens.WETH['cksum_address'], 1 * (10 ** 8)).call()[1]
-    kyber_out = kyber_out * (10 ** -18)
-    print(kyber_out)
-
 
 @tasks.loop(minutes=10.0)
 async def get_ETH_price():
@@ -164,16 +154,35 @@ def swapSushiUni(token0, token1, fee, amount):
 
     return (sushi_out, uni_out)
 
+@tasks.loop(seconds=2.0)
+async def swapUniKyber(token0, token1, fee, amount):
+    uni_out = uni_quoter.functions.quoteExactInputSingle(
+        tokenIn=token1["cksum_address"],
+        tokenOut=token0["cksum_address"],
+        fee=fee,
+        amountIn=int(amount * (10 ** token0['decimals'])),
+        sqrtPriceLimitX96=0
+    ).call()
+    
+    kyber_out = kyber_network_proxy.functions.getExpectedRate(
+        token0['cksum_address'], token1['cksum_address'], uni_out).call()[1]
+    
+    logger.info("Uni_out: " + (uni_out * (10 ** -token1['decimals'])))
+    logger.info("Kyber_out: " + (kyber_out * (10 ** -token0['decimals'])))
+    print(uni_out, kyber_out)
+
 
 async def notifyOnOpportunity(pair, startAmount, out0, out1, version, channel):
     if embeds[pair['name']][version] == None:
         if out1 > startAmount:
             embed = Embed.crossDex(
                 pair['name'], startAmount, out0, out1, version)
-            #also log the info to file
-            logger.info("Found Opportunity with Version " + str(version) + " on " + pair['name'])
-            logger.info("Percentage Gain: " + str(((out1 / startAmount) - 1.0) * 100))
-            
+            # also log the info to file
+            logger.info("Found Opportunity with Version " +
+                        str(version) + " on " + pair['name'])
+            logger.info("Percentage Gain: " +
+                        str(((out1 / startAmount) - 1.0) * 100))
+
             embeds[pair['name']][version] = await channel.send(embed=embed)
     else:
         if out1 > startAmount:
@@ -183,6 +192,6 @@ async def notifyOnOpportunity(pair, startAmount, out0, out1, version, channel):
         else:
             await embeds[pair['name']][version].delete()
             embeds[pair['name']][version] = None
-    
+
 # start the disc bot
 disc_bot.run(discord_bot_token)
